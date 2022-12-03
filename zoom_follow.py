@@ -10,9 +10,10 @@ from enum import Enum
 from utils.hotkey import Hotkey
 
 class ZoomFollowStates(Enum):
-    FOLLOW = 1
-    WINDOW = 2
-    RECT = 3
+    NONE = 1
+    FOLLOW = 2
+    WINDOW = 3
+    RECT = 4
 
 """
 Main class for the script - all the actual logic is here
@@ -23,42 +24,61 @@ class ZoomFollow:
     hotkeys = []
     
     crop = obs.obs_sceneitem_crop()
+    target_crop = obs.obs_sceneitem_crop()
     source_size = obs.vec2()
     rect = None
+    screen = None
 
     def load(self, settings):
         current_scene_as_source = obs.obs_frontend_get_current_scene()
-        if current_scene_as_source:
-            current_scene = obs.obs_scene_from_source(current_scene_as_source)
-            scene_item = obs.obs_scene_find_source_recursive(current_scene, "Screen")
-            source = obs.obs_sceneitem_get_source(scene_item)
-            self.source_size.x = obs.obs_source_get_width(source)
-            self.source_size.y = obs.obs_source_get_height(source)
-            obs.obs_source_release(current_scene_as_source)
 
-            self.scene_item = scene_item
-            
+        if not current_scene_as_source:
+            return
+
+        current_scene = obs.obs_scene_from_source(current_scene_as_source)
+        self.scene_item = obs.obs_scene_find_source_recursive(current_scene, "Screen")
+        source = obs.obs_sceneitem_get_source(self.scene_item)
+        source_settings = obs.obs_source_get_settings(source)
+        obs_display = obs.obs_data_get_int(source_settings, "display")
+        self.source_size.x = obs.obs_source_get_width(source)
+        self.source_size.y = obs.obs_source_get_height(source)
+        obs.obs_source_release(current_scene_as_source)
+
+        # Find the active display settings
+        for screen in pwc.getAllScreens().items():
+            if screen[1]['id'] == obs_display:
+                print(f"Found monitor {screen[0]}")
+                self.screen = screen[1]
+
+        if not self.screen:
+            print("Failed finding the screen!")
+
         self.init_hotkeys(settings)
 
     def init_hotkeys(self, settings):
         def set_follow(pressed):
-            if pressed:
-                self.set_mode(ZoomFollowStates.FOLLOW)
+            if not pressed:
+                return
+
+            self.set_mode(ZoomFollowStates.FOLLOW)
 
         def set_rect(pressed):
             if not pressed:
                 return
 
             pos = pwc.getMousePos()
+            if not self.verify_display(pos):
+                print('Clicked outside the active display')
+                return
 
             if not self.rect:
                 print("First press")
                 self.rect = obs.vec4()
                 self.rect.x = pos.x
                 self.rect.y = pos.y
+                print(f"Mouse Pos: {pos.x}, {pos.y}")
             else:
                 print("Second press")
-
                 self.rect.z = pos.x
                 self.rect.w = pos.y
 
@@ -79,9 +99,12 @@ class ZoomFollow:
             if pressed:
                 print("Pressed hotkey 3")
 
+
         def reset(pressed):
             if pressed:
-                print("Reset")
+                self.set_mode(ZoomFollowStates.NONE)
+                self.crop = obs.obs_sceneitem_crop()
+                obs.obs_sceneitem_set_crop(self.scene_item, self.crop)
 
         self.hotkeys = [
             Hotkey(set_follow, settings, "zf.follow.toggle", "ZoomFollow: Follow mouse"),
@@ -98,14 +121,26 @@ class ZoomFollow:
         print(f"Switching mode to {mode}")
         self.mode = mode
 
+    def verify_display(self, pos):
+        screen_pos = self.screen['pos']
+        screen_size = self.screen['size']
+        in_x = (pos.x - screen_pos.x >= 0 and pos.x - screen_pos.x <= screen_size.width)
+        in_y = (pos.y + screen_pos.y >= 0 and pos.y + screen_pos.y <= screen_size.height)
+        print(f"Mouse: {pos.x - screen_pos.x}, {in_x}, {pos.y + screen_pos.y}, {in_y}")
+        return in_x and in_y
+
+    def set_target_crop(self, target_crop):
+        self.target_crop = target_crop
+
     def tick(self, seconds):
         if self.scene_item and self.mode == ZoomFollowStates.FOLLOW:
             pos = pwc.getMousePos()
-            self.crop.left = int(pos.x)
-            self.crop.right = int((self.bounds.x/2) - pos.x)
-            self.crop.top = int(pos.y)
-            self.crop.bottom = int((self.bounds.y/2) - pos.y)
-            obs.obs_sceneitem_set_crop(self.scene_item, self.crop)
+            if self.verify_display(pos):
+                self.crop.left = int(pos.x)
+                self.crop.right = int((self.source_size.x/2) - pos.x)
+                self.crop.top = int(pos.y)
+                self.crop.bottom = int((self.source_size.y/2) - pos.y)
+                obs.obs_sceneitem_set_crop(self.scene_item, self.crop)
 
 zf = ZoomFollow()
 
