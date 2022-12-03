@@ -86,25 +86,25 @@ class ZoomFollow:
                 print(f"Bounds: {self.source_size.x}, {self.source_size.y}")
                 self.set_mode(ZoomFollowStates.RECT)
 
-                self.crop.left = int(self.rect.x)
-                self.crop.right = int(self.source_size.x) - int(self.rect.z)
-                self.crop.top = int(self.rect.y)
-                self.crop.bottom = int(self.source_size.y) - int(self.rect.w)
-
-                obs.obs_sceneitem_set_crop(self.scene_item, self.crop)
-
+                crop = obs.obs_sceneitem_crop()
+                crop.left = int(self.rect.x)
+                crop.right = int(self.source_size.x) - int(self.rect.z)
+                crop.top = int(self.rect.y)
+                crop.bottom = int(self.source_size.y) - int(self.rect.w)
+                self.set_target_crop(crop)
+                
                 self.rect = None
 
         def set_window(pressed):
             if pressed:
                 print("Pressed hotkey 3")
 
-
         def reset(pressed):
-            if pressed:
-                self.set_mode(ZoomFollowStates.NONE)
-                self.crop = obs.obs_sceneitem_crop()
-                obs.obs_sceneitem_set_crop(self.scene_item, self.crop)
+            if not pressed:
+                return
+
+            self.set_mode(ZoomFollowStates.NONE)
+            self.set_target_crop(obs.obs_sceneitem_crop())
 
         self.hotkeys = [
             Hotkey(set_follow, settings, "zf.follow.toggle", "ZoomFollow: Follow mouse"),
@@ -131,16 +131,19 @@ class ZoomFollow:
 
     def set_target_crop(self, target_crop):
         self.target_crop = target_crop
+        self.crop = target_crop
+        obs.obs_sceneitem_set_crop(self.scene_item, self.crop)
 
     def tick(self, seconds):
         if self.scene_item and self.mode == ZoomFollowStates.FOLLOW:
             pos = pwc.getMousePos()
             if self.verify_display(pos):
-                self.crop.left = int(pos.x)
-                self.crop.right = int((self.source_size.x/2) - pos.x)
-                self.crop.top = int(pos.y)
-                self.crop.bottom = int((self.source_size.y/2) - pos.y)
-                obs.obs_sceneitem_set_crop(self.scene_item, self.crop)
+                crop = obs.obs_sceneitem_crop()
+                crop.left = int(pos.x)
+                crop.right = int((self.source_size.x/2) - pos.x)
+                crop.top = int(pos.y)
+                crop.bottom = int((self.source_size.y/2) - pos.y)
+                self.set_target_crop(crop)
 
 zf = ZoomFollow()
 
