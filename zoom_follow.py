@@ -22,17 +22,18 @@ class ZoomFollow:
     mode = "none"
     hotkeys = []
     
-    bounds = obs.vec2()
     crop = obs.obs_sceneitem_crop()
-    rect = obs.vec4()
-
+    source_size = obs.vec2()
+    rect = None
 
     def load(self, settings):
         current_scene_as_source = obs.obs_frontend_get_current_scene()
         if current_scene_as_source:
             current_scene = obs.obs_scene_from_source(current_scene_as_source)
             scene_item = obs.obs_scene_find_source_recursive(current_scene, "Screen")
-            obs.obs_sceneitem_get_bounds(scene_item, self.bounds)
+            source = obs.obs_sceneitem_get_source(scene_item)
+            self.source_size.x = obs.obs_source_get_width(source)
+            self.source_size.y = obs.obs_source_get_height(source)
             obs.obs_source_release(current_scene_as_source)
 
             self.scene_item = scene_item
@@ -45,8 +46,34 @@ class ZoomFollow:
                 self.set_mode(ZoomFollowStates.FOLLOW)
 
         def set_rect(pressed):
-            if pressed:
-                print("Pressed hotkey 2")
+            if not pressed:
+                return
+
+            pos = pwc.getMousePos()
+
+            if not self.rect:
+                print("First press")
+                self.rect = obs.vec4()
+                self.rect.x = pos.x
+                self.rect.y = pos.y
+            else:
+                print("Second press")
+
+                self.rect.z = pos.x
+                self.rect.w = pos.y
+
+                print(f"Rect: {self.rect.x}, {self.rect.y}, {self.rect.z}, {self.rect.w}")
+                print(f"Bounds: {self.source_size.x}, {self.source_size.y}")
+                self.set_mode(ZoomFollowStates.RECT)
+
+                self.crop.left = int(self.rect.x)
+                self.crop.right = int(self.source_size.x) - int(self.rect.z)
+                self.crop.top = int(self.rect.y)
+                self.crop.bottom = int(self.source_size.y) - int(self.rect.w)
+
+                obs.obs_sceneitem_set_crop(self.scene_item, self.crop)
+
+                self.rect = None
 
         def set_window(pressed):
             if pressed:
@@ -72,18 +99,13 @@ class ZoomFollow:
         self.mode = mode
 
     def tick(self, seconds):
-        if not self.scene_item:
-            return
-
-        match self.mode:
-            case ZoomFollowStates.FOLLOW:
-                pos = pwc.getMousePos()
-                crop.left = int(pos.x)
-                crop.right = int((self.bounds.x/2) - pos.x)
-                crop.top = int(pos.y)
-                crop.bottom = int((self.bounds.y/2) - pos.y)
-
-        obs.obs_sceneitem_set_crop(self.scene_item, crop)
+        if self.scene_item and self.mode == ZoomFollowStates.FOLLOW:
+            pos = pwc.getMousePos()
+            self.crop.left = int(pos.x)
+            self.crop.right = int((self.bounds.x/2) - pos.x)
+            self.crop.top = int(pos.y)
+            self.crop.bottom = int((self.bounds.y/2) - pos.y)
+            obs.obs_sceneitem_set_crop(self.scene_item, self.crop)
 
 zf = ZoomFollow()
 
