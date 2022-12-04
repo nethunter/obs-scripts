@@ -76,13 +76,13 @@ class ZoomFollow:
                 return
 
             if not self.rect:
-                print("First press")
+                print("Capturing first point")
                 self.rect = obs.vec4()
                 self.rect.x = pos.x
                 self.rect.y = pos.y
                 print(f"Mouse Pos: {pos.x}, {pos.y}")
             else:
-                print("Second press")
+                print("Capturing second point")
                 self.rect.z = pos.x
                 self.rect.w = pos.y
 
@@ -208,6 +208,7 @@ def script_description():
         "Zooms into the screen and has a few modes of following:\n"
         + "Follow mouse, lock window, lock region\n\n"
         + "By David Tabachnikov (@hml / @davidtab)\n\n"
+        + "https://youtube.com/@hml"
     )
 
 def script_load(settings):
