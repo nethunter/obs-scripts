@@ -1,5 +1,5 @@
 import obspython as obs
-from .utils.hotkey import Hotkey
+from ..utils.hotkey import Hotkey
 
 class Test:
     hotkeys = []
