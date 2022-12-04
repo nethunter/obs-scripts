@@ -23,8 +23,8 @@ class ZoomFollow:
     mode = "none"
     hotkeys = []
     
-    crop = obs.obs_sceneitem_crop()
-    target_crop = obs.obs_sceneitem_crop()
+    current_rect = obs.obs_sceneitem_crop()
+    target_rect = None
     source_size = obs.vec2()
     rect = None
     screen = None
@@ -90,7 +90,7 @@ class ZoomFollow:
                 print(f"Bounds: {self.source_size.x}, {self.source_size.y}")
                 self.set_mode(ZoomFollowStates.RECT)
 
-                self.set_zoom_rect(self.rect.x, self.rect.y, self.rect.z, self.rect.w)
+                self.set_target_rect(self.rect.x, self.rect.y, self.rect.z, self.rect.w)
                 self.rect = None
 
         def set_window_mode(pressed):
@@ -100,14 +100,14 @@ class ZoomFollow:
             window = pwc.getActiveWindow()
             box = window.box
 
-            self.set_zoom_rect(box.left - 10, box.top - 10, box.left + box.width + 10, box.top + box.height + 10)
+            self.set_target_rect(box.left - 10, box.top - 10, box.left + box.width + 10, box.top + box.height + 10)
 
         def reset_mode(pressed):
             if not pressed:
                 return
 
             self.set_mode(ZoomFollowStates.NONE)
-            self.set_target_crop(obs.obs_sceneitem_crop())
+            self.set_target_rect(0, 0, self.source_size.x, self.source_size.y)
 
         self.hotkeys = [
             Hotkey(set_follow_mode, settings, "zf.follow.toggle", "ZoomFollow: Follow mouse"),
@@ -124,7 +124,7 @@ class ZoomFollow:
         if self.mode == ZoomFollowStates.FOLLOW:
             pos = pwc.getMousePos()
             if self.in_display(pos):
-                self.set_zoom_rect(pos.x-100, pos.y-100, pos.x+100, pos.y+100)
+                self.set_target_rect(pos.x-100, pos.y-100, pos.x+100, pos.y+100)
         else:
             obs.remove_current_callback()
 
@@ -144,7 +144,15 @@ class ZoomFollow:
         in_y = (pos.y + screen_pos.y >= 0 and pos.y + screen_pos.y <= screen_size.height)
         return in_x and in_y
 
-    def set_zoom_rect(self, x, y, z, w):
+    def set_target_rect(self, x, y, z, w):
+        target_rect = obs.obs_sceneitem_crop()
+        target_rect.left = int(x)
+        target_rect.top = int(y)
+        target_rect.right = int(z)
+        target_rect.bottom = int(w)
+        self.target_rect = target_rect
+
+    def set_source_crop(self, x, y, z, w):
         # Absolute rect
         if x > z:
             x, z = z, x
@@ -198,24 +206,20 @@ class ZoomFollow:
         crop.top = int(y)
         crop.right = int(self.source_size.x) - int(z)
         crop.bottom = int(self.source_size.y) - int(w)        
-        self.set_target_crop(crop)
-
-    def set_target_crop(self, target_crop):
-        self.target_crop = target_crop
-        # obs.obs_sceneitem_set_crop(self.scene_item, self.crop)
-
-    def tick(self, seconds):
+        obs.obs_sceneitem_set_crop(self.scene_item, crop)
+    
+    def tick_zoom_step(self):
         def go_towards(src, dest):
             distance = abs(dest - src)
 
             print(f"Distance is {distance}")
-            if distance <= 50:
+            if distance <= 5:
                 return int(dest)
 
             if src > dest:
                 distance = -distance
                 
-            step = distance / 6
+            step = distance / 5
             print(f"Src: {src}, Dest: {dest}, Distance: {distance}, Step: {step}")
             result = src + step
 
@@ -224,18 +228,26 @@ class ZoomFollow:
                 
             return int(result)
 
-        if self.scene_item and self.target_crop:
-            self.crop.left = go_towards(self.crop.left, self.target_crop.left)
-            self.crop.top = go_towards(self.crop.top, self.target_crop.top)
-            self.crop.bottom = go_towards(self.crop.bottom, self.target_crop.bottom)
-            self.crop.right = go_towards(self.crop.right, self.target_crop.right)
-            obs.obs_sceneitem_set_crop(self.scene_item, self.crop)
+        if self.scene_item and self.target_rect:
+            rect = self.current_rect
+            target_rect = self.target_rect
+            
+            self.current_rect.left = go_towards(rect.left, target_rect.left)
+            self.current_rect.top = go_towards(rect.top, target_rect.top)
+            self.current_rect.bottom = go_towards(rect.bottom, target_rect.bottom)
+            self.current_rect.right = go_towards(rect.right, target_rect.right)
 
-            if (self.crop.left == self.target_crop.left and 
-                self.crop.top == self.target_crop.top and 
-                self.crop.right == self.target_crop.right and 
-                self.crop.bottom == self.target_crop.bottom):
-                self.target_crop = None
+            rect = self.current_rect
+            self.set_source_crop(rect.left, rect.top, rect.right, rect.bottom)
+
+            if (rect.left == target_rect.left and 
+                rect.top == target_rect.top and 
+                rect.right == target_rect.right and 
+                rect.bottom == target_rect.bottom):
+                self.target_rect = None
+
+    def tick(self, seconds):
+        self.tick_zoom_step()
 
 zf = ZoomFollow()
 
