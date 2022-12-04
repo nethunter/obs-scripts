@@ -96,7 +96,7 @@ class ZoomFollow:
         def set_window_mode(pressed):
             if pressed:
                 print("Pressed hotkey 3")
-                self.set_zoom_rect(100, 100, 500, 500)
+                self.set_zoom_rect(-100, -100, 100, 100)
 
         def reset_mode(pressed):
             if not pressed:
@@ -125,12 +125,10 @@ class ZoomFollow:
         screen_size = self.screen['size']
         in_x = (pos.x - screen_pos.x >= 0 and pos.x - screen_pos.x <= screen_size.width)
         in_y = (pos.y + screen_pos.y >= 0 and pos.y + screen_pos.y <= screen_size.height)
-        print(f"Mouse: {pos.x - screen_pos.x}, {in_x}, {pos.y + screen_pos.y}, {in_y}")
         return in_x and in_y
 
     def set_zoom_rect(self, x, y, z, w):
-        print(f"Set zoom rect: X: {x}, Y: {y}, Z: {z}, W: {w}")
-
+        # Absolute rect
         if x > z:
             x, z = z, x
 
@@ -142,29 +140,37 @@ class ZoomFollow:
         height = abs(w - y)
         screen_size = self.screen['size']
 
-        print(f"Width: {width}, Height: {height}")
         overflow = None
         width_percent = width / screen_size.width
         height_percent = height / screen_size.height
         if (width_percent > height_percent):
-            print("Calculating height")
-            w = int(y + (screen_size.height * width_percent))
-
-            if w > screen_size.height:
-                overflow = abs(screen_size.height - w)
-                w = w - overflow
-                y = y - overflow
+            height = screen_size.height * width_percent
+            w = int(y + height)
         else:
-            print("Calculating width")
-            z = int(x + (screen_size.width * height_percent))
+            width = screen_size.width * height_percent
+            z = int(x + width)
 
-            if z > screen_size.width:
-                overflow = abs(screen_size.height - w)
-                z = z - overflow
-                x = x - overflow
+        # Safe area
+        print(f"Before: {x}, {y}, {z}, {w}")
+        if x < 0:
+            z = z + -x
+            x = 0
+        
+        if y < 0:
+            w = w + -y
+            y = 0
 
-        if overflow:
-            print(f"Overflow: {overflow}")
+        if z > screen_size.width:
+            overflow = abs(screen_size.width - z)
+            z = z - overflow
+            x = x - overflow
+
+        if w > screen_size.height:
+            overflow = abs(screen_size.height - w)
+            w = w - overflow
+            y = y - overflow
+
+        print(f"After: {x}, {y}, {z}, {w}")
 
         # Set crop
         crop = obs.obs_sceneitem_crop()
@@ -183,7 +189,7 @@ class ZoomFollow:
             if self.mode == ZoomFollowStates.FOLLOW:
                 pos = pwc.getMousePos()
                 if self.in_display(pos):
-                    self.set_zoom_rect(pos.x, pos.y, pos.x+100, pos.y+100)
+                    self.set_zoom_rect(pos.x-100, pos.y-100, pos.x+100, pos.y+100)
 
 zf = ZoomFollow()
 
