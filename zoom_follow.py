@@ -120,8 +120,21 @@ class ZoomFollow:
         for htk in self.hotkeys:
             htk.save_hotkey()
 
+    def update_mouse_crop(self):
+        if self.mode == ZoomFollowStates.FOLLOW:
+            pos = pwc.getMousePos()
+            if self.in_display(pos):
+                self.set_zoom_rect(pos.x-100, pos.y-100, pos.x+100, pos.y+100)
+        else:
+            obs.remove_current_callback()
+
     def set_mode(self, mode):
         print(f"Switching mode to {mode}")
+
+        match mode:
+            case ZoomFollowStates.FOLLOW:
+                obs.timer_add(self.update_mouse_crop, 20)
+
         self.mode = mode
 
     def in_display(self, pos):
@@ -193,10 +206,6 @@ class ZoomFollow:
 
     def tick(self, seconds):
         if self.scene_item:
-            if self.mode == ZoomFollowStates.FOLLOW:
-                pos = pwc.getMousePos()
-                if self.in_display(pos):
-                    self.set_zoom_rect(pos.x-100, pos.y-100, pos.x+100, pos.y+100)
 
 zf = ZoomFollow()
 
