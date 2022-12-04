@@ -94,9 +94,12 @@ class ZoomFollow:
                 self.rect = None
 
         def set_window_mode(pressed):
-            if pressed:
-                print("Pressed hotkey 3")
-                self.set_zoom_rect(-100, -100, 100, 100)
+            if not pressed:
+                return
+            window = pwc.getActiveWindow()
+            box = window.box
+
+            self.set_zoom_rect(box.left, box.top, box.left + box.width, box.top + box.height)
 
         def reset_mode(pressed):
             if not pressed:
@@ -151,7 +154,6 @@ class ZoomFollow:
             z = int(x + width)
 
         # Safe area
-        print(f"Before: {x}, {y}, {z}, {w}")
         if x < 0:
             z = z + -x
             x = 0
@@ -169,8 +171,6 @@ class ZoomFollow:
             overflow = abs(screen_size.height - w)
             w = w - overflow
             y = y - overflow
-
-        print(f"After: {x}, {y}, {z}, {w}")
 
         # Set crop
         crop = obs.obs_sceneitem_crop()
