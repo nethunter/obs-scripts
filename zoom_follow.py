@@ -201,11 +201,41 @@ class ZoomFollow:
         self.set_target_crop(crop)
 
     def set_target_crop(self, target_crop):
-        self.target_crop = self.crop = target_crop
-        obs.obs_sceneitem_set_crop(self.scene_item, self.crop)
+        self.target_crop = target_crop
+        # obs.obs_sceneitem_set_crop(self.scene_item, self.crop)
 
     def tick(self, seconds):
-        if self.scene_item:
+        def go_towards(src, dest):
+            distance = abs(dest - src)
+
+            print(f"Distance is {distance}")
+            if distance <= 50:
+                return int(dest)
+
+            if src > dest:
+                distance = -distance
+                
+            step = distance / 6
+            print(f"Src: {src}, Dest: {dest}, Distance: {distance}, Step: {step}")
+            result = src + step
+
+            if result < 0:
+                result = 0
+                
+            return int(result)
+
+        if self.scene_item and self.target_crop:
+            self.crop.left = go_towards(self.crop.left, self.target_crop.left)
+            self.crop.top = go_towards(self.crop.top, self.target_crop.top)
+            self.crop.bottom = go_towards(self.crop.bottom, self.target_crop.bottom)
+            self.crop.right = go_towards(self.crop.right, self.target_crop.right)
+            obs.obs_sceneitem_set_crop(self.scene_item, self.crop)
+
+            if (self.crop.left == self.target_crop.left and 
+                self.crop.top == self.target_crop.top and 
+                self.crop.right == self.target_crop.right and 
+                self.crop.bottom == self.target_crop.bottom):
+                self.target_crop = None
 
 zf = ZoomFollow()
 
