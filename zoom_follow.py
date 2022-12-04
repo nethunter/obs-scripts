@@ -96,10 +96,11 @@ class ZoomFollow:
         def set_window_mode(pressed):
             if not pressed:
                 return
+
             window = pwc.getActiveWindow()
             box = window.box
 
-            self.set_zoom_rect(box.left, box.top, box.left + box.width, box.top + box.height)
+            self.set_zoom_rect(box.left - 10, box.top - 10, box.left + box.width + 10, box.top + box.height + 10)
 
         def reset_mode(pressed):
             if not pressed:
@@ -147,11 +148,17 @@ class ZoomFollow:
         width_percent = width / screen_size.width
         height_percent = height / screen_size.height
         if (width_percent > height_percent):
-            height = screen_size.height * width_percent
-            w = int(y + height)
+            new_height = screen_size.height * width_percent
+            missing_height = (new_height - height) / 2
+            w = int(w + missing_height)
+            y = int(y - missing_height)
+            height = new_height
         else:
-            width = screen_size.width * height_percent
-            z = int(x + width)
+            new_width = screen_size.width * height_percent
+            missing_width = (new_width - width) / 2
+            z = int(z + missing_width)
+            x = int(x - missing_width)
+            width = new_width
 
         # Safe area
         if x < 0:
